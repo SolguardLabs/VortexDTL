@@ -1,0 +1,25 @@
+{
+    "name": "vortex-dtl",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "description": "CTF de pricing y liquidacion DTL con motor C y tests JavaScript.",
+    "scripts": {
+        "build": "node scripts/build.mjs",
+        "build:required": "node scripts/build.mjs --required",
+        "build:check": "node scripts/check-js.mjs",
+        "test": "node --test \"tests/node/*.test.js\"",
+        "test:bun": "bun test --timeout 30000 ./tests/node",
+        "test:all": "node scripts/build.mjs && node scripts/check-js.mjs && node --test \"tests/node/*.test.js\"",
+        "demo": "node scripts/vortex-js.mjs demo-json",
+        "quote": "node scripts/vortex-js.mjs quote-json stable-direct 2500000",
+        "exploit": "node scripts/vortex-js.mjs exploit-json",
+        "scan": "node scripts/audit-scan.mjs vortex-loop 1000000 1000100",
+        "policy": "node scripts/vortex-js.mjs route-policy-json stable-direct",
+        "health": "node scripts/vortex-js.mjs health-json",
+        "ci": "node scripts/build.mjs && node scripts/check-js.mjs && node --test \"tests/node/*.test.js\""
+    },
+    "engines": {
+        "node": ">=20"
+    }
+}
