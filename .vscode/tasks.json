@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build VortexDTL",
+      "type": "shell",
+      "command": "npm run build:required",
+      "group": "build"
+    },
+    {
+      "label": "Test VortexDTL",
+      "type": "shell",
+      "command": "npm test",
+      "group": "test"
+    }
+  ]
+}

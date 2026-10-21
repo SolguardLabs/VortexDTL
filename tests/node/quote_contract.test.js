@@ -43,5 +43,4 @@ test("demo-json conserva metricas de liquidacion deterministas", () => {
     assert.equal(demo.hop.finalOut, 3464247);
     assert.equal(demo.ledger.totals.reservedValue, 6249970);
     assert.equal(demo.ledger.totals.creditedValue, 6241660);
-    assert.equal(demo.ledger.totals.extractedValue, 0);
 });

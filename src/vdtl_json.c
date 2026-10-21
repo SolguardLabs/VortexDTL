@@ -112,8 +112,6 @@ void vdtl_json_print_compact_settlement(
     json_u64(stream, event->reserved_value);
     fputs(",\"creditedValue\":", stream);
     json_u64(stream, event->credited_value);
-    fputs(",\"extractedValue\":", stream);
-    json_u64(stream, event->extracted_value);
     fputs(",\"fees\":", stream);
     print_amount_map(stream, &ctx[0], event->settlement.fee_by_asset);
     fputs(",\"rebates\":", stream);
@@ -167,8 +165,6 @@ void vdtl_json_print_ledger(FILE *stream, const vdtl_ledger *ledger) {
     json_u64(stream, ledger->totals.reserved_value);
     fputs(",\"creditedValue\":", stream);
     json_u64(stream, ledger->totals.credited_value);
-    fputs(",\"extractedValue\":", stream);
-    json_u64(stream, ledger->totals.extracted_value);
     fputs(",\"orders\":", stream);
     json_u64(stream, ledger->totals.orders);
     fputs("},\"events\":", stream);
@@ -182,26 +178,6 @@ void vdtl_json_print_demo(FILE *stream, const vdtl_settlement_event *a,
     vdtl_json_print_compact_settlement(stream, &ledger->ctx, a);
     fputs(",\"hop\":", stream);
     vdtl_json_print_compact_settlement(stream, &ledger->ctx, b);
-    fputs(",\"ledger\":", stream);
-    vdtl_json_print_ledger(stream, ledger);
-    fputc('}', stream);
-}
-
-void vdtl_json_print_exploit(FILE *stream, const vdtl_settlement_event *first,
-                             const vdtl_settlement_event *last,
-                             const vdtl_ledger *ledger,
-                             uint64_t iterations,
-                             uint64_t amount_in) {
-    fputs("{\"scenario\":\"exploit\",\"routeId\":\"vortex-loop\",\"amountIn\":", stream);
-    json_u64(stream, amount_in);
-    fputs(",\"iterations\":", stream);
-    json_u64(stream, iterations);
-    fputs(",\"quoteOut\":", stream);
-    json_u64(stream, first->quote.final_out);
-    fputs(",\"first\":", stream);
-    vdtl_json_print_compact_settlement(stream, &ledger->ctx, first);
-    fputs(",\"last\":", stream);
-    vdtl_json_print_compact_settlement(stream, &ledger->ctx, last);
     fputs(",\"ledger\":", stream);
     vdtl_json_print_ledger(stream, ledger);
     fputc('}', stream);
@@ -273,4 +249,28 @@ void vdtl_json_print_ledger_health(FILE *stream, const vdtl_ledger_health *healt
         print_vault_metric(stream, &health->vaults[i]);
     }
     fputs("]}", stream);
+}
+
+void vdtl_json_print_liquidity_projection(
+    FILE *stream,
+    const vdtl_liquidity_projection *projection) {
+    fputs("{\"asset\":", stream);
+    json_string(stream, projection->asset);
+    fputs(",\"available\":", stream);
+    json_u64(stream, projection->available);
+    fputs(",\"requestedPayout\":", stream);
+    json_u64(stream, projection->requested_payout);
+    fputs(",\"bufferBps\":", stream);
+    json_u64(stream, projection->buffer_bps);
+    fputs(",\"requiredBuffer\":", stream);
+    json_u64(stream, projection->required_buffer);
+    fputs(",\"projectedAvailable\":", stream);
+    json_u64(stream, projection->projected_available);
+    fputs(",\"headroom\":", stream);
+    json_u64(stream, projection->headroom);
+    fputs(",\"unfunded\":", stream);
+    json_u64(stream, projection->unfunded);
+    fputs(",\"withinPolicy\":", stream);
+    fputs(projection->within_policy ? "true" : "false", stream);
+    fputc('}', stream);
 }

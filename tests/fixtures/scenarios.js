@@ -144,7 +144,7 @@ export const DEFAULT_ROUTES = [
     },
     {
         id: "vortex-loop",
-        label: "precision loop used by the CTF",
+        label: "multi-precision settlement corridor",
         maxLegs: 6,
         maxSlippageBps: 120,
         legs: [

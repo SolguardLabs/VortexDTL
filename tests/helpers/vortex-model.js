@@ -385,7 +385,6 @@ export function createLedger(options = {}) {
         totals: {
             reservedValue: 0n,
             creditedValue: 0n,
-            extractedValue: 0n,
             orders: 0n,
         },
     };
@@ -436,6 +435,31 @@ export function collectLedgerHealth(ledger) {
         protocolValue: accountValueMicroUsd(ledger.catalog, ledger.accounts.protocol),
         stressedVaults,
         vaults,
+    };
+}
+
+export function projectVaultLiquidity(ledger, asset, payout, bufferBps = 500) {
+    if (!ledger) throw new VortexError("VDTL_NO_LEDGER", "ledger is required");
+    if (!Number.isInteger(bufferBps) || bufferBps < 0 || bufferBps > 10_000) {
+        throw new VortexError("VDTL_BAD_BPS", "buffer basis points out of range");
+    }
+    const config = ledger.catalog.asset(asset);
+    const vault = ledger.vaults[asset];
+    const requestedPayout = asBigInt(payout);
+    const requiredBuffer = bpsAmount(config.openingLiquidity, bufferBps, "ceil");
+    const unfunded = requestedPayout > vault.available ? requestedPayout - vault.available : 0n;
+    const projectedAvailable = requestedPayout > vault.available ? 0n : vault.available - requestedPayout;
+    const headroom = projectedAvailable > requiredBuffer ? projectedAvailable - requiredBuffer : 0n;
+    return {
+        asset,
+        available: vault.available,
+        requestedPayout,
+        bufferBps: BigInt(bufferBps),
+        requiredBuffer,
+        projectedAvailable,
+        headroom,
+        unfunded,
+        withinPolicy: unfunded === 0n && projectedAvailable >= requiredBuffer,
     };
 }
 
@@ -520,10 +544,8 @@ export function settleOrder({
     const reservedValue = valueMicroUsd(ledger.catalog, sourceAsset, reserve.reserveIn, "floor");
     const creditedValue =
         valueMicroUsd(ledger.catalog, targetAsset, settlement.finalOut, "ceil") + rebateValue;
-    const extractedValue = creditedValue > reservedValue ? creditedValue - reservedValue : 0n;
     ledger.totals.reservedValue += reservedValue;
     ledger.totals.creditedValue += creditedValue;
-    ledger.totals.extractedValue += extractedValue;
     ledger.totals.orders += 1n;
 
     const event = {
@@ -538,43 +560,9 @@ export function settleOrder({
         settlement,
         reservedValue,
         creditedValue,
-        extractedValue,
     };
     ledger.events.push(event);
     return event;
-}
-
-export function runExploit({
-    routeId = "vortex-loop",
-    amountIn = 1_000_001,
-    iterations = 64,
-    minOut,
-} = {}) {
-    const ledger = createLedger();
-    const quote = quoteRoute(routeId, amountIn, { catalog: ledger.catalog });
-    const actualMinOut = minOut === undefined ? quote.finalOut : minOut;
-    const events = [];
-
-    for (let i = 0; i < iterations; i += 1) {
-        events.push(
-            settleOrder({
-                ledger,
-                routeId,
-                amountIn,
-                minOut: actualMinOut,
-            }),
-        );
-    }
-
-    return {
-        routeId,
-        amountIn: asBigInt(amountIn),
-        iterations: BigInt(iterations),
-        quote,
-        firstSettlement: events[0],
-        lastSettlement: events[events.length - 1],
-        ledger,
-    };
 }
 
 export function toPlain(value) {
@@ -626,7 +614,6 @@ export function compactSettlement(event) {
         finalOut: event.settlement.finalOut,
         reservedValue: event.reservedValue,
         creditedValue: event.creditedValue,
-        extractedValue: event.extractedValue,
         fees: event.settlement.feeByAsset,
         rebates: event.settlement.rebateByAsset,
     });

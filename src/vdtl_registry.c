@@ -106,7 +106,7 @@ void vdtl_context_init_default(vdtl_context *ctx) {
                          240000u, 1080000u, 6u, 2u, 9u, 6100u, 3u);
 
     route = &ctx->routes[2];
-    route_header(route, "vortex-loop", "precision loop used by the CTF", 120u);
+    route_header(route, "vortex-loop", "multi-precision settlement corridor", 120u);
     route->leg_count = 6u;
     route->legs[0] = leg("loop-usd-q7", "vUSD", "vQ7", 1u, 1u, 0u, 0u, 0u, 0u, 0u);
     route->legs[1] = leg("loop-q7-q3", "vQ7", "vQ3", 1u, 1u, 0u, 0u, 0u, 0u, 0u);

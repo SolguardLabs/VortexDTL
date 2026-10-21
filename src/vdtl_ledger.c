@@ -138,9 +138,6 @@ vdtl_status vdtl_settle_order(
 
     ledger->totals.reserved_value += reserved_value;
     ledger->totals.credited_value += credited_value;
-    if (credited_value > reserved_value) {
-        ledger->totals.extracted_value += credited_value - reserved_value;
-    }
     ledger->totals.orders += 1u;
     ledger->events += 1u;
 
@@ -155,6 +152,5 @@ vdtl_status vdtl_settle_order(
     out->settlement = settlement;
     out->reserved_value = reserved_value;
     out->credited_value = credited_value;
-    out->extracted_value = credited_value > reserved_value ? credited_value - reserved_value : 0u;
     return VDTL_OK;
 }

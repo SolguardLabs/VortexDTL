@@ -165,3 +165,41 @@ vdtl_status vdtl_collect_ledger_health(
     if (status != VDTL_OK) return status;
     return VDTL_OK;
 }
+
+vdtl_status vdtl_project_vault_liquidity(
+    const vdtl_ledger *ledger,
+    const char *asset,
+    uint64_t payout,
+    uint32_t buffer_bps,
+    vdtl_liquidity_projection *out) {
+    int index;
+    const vdtl_vault *vault;
+    const vdtl_asset *config;
+    vdtl_status status;
+    if (ledger == NULL || asset == NULL || out == NULL) return VDTL_ERR_NULL;
+    if (buffer_bps > 10000u) return VDTL_ERR_RANGE;
+    index = vdtl_asset_index(&ledger->ctx, asset);
+    if (index < 0) return VDTL_ERR_NOT_FOUND;
+    vault = &ledger->vaults[index];
+    config = &ledger->ctx.assets[index];
+    memset(out, 0, sizeof(*out));
+    copy_text(out->asset, sizeof(out->asset), asset);
+    out->available = vault->available;
+    out->requested_payout = payout;
+    out->buffer_bps = buffer_bps;
+    status = vdtl_bps_amount(config->opening_liquidity, buffer_bps,
+                             VDTL_ROUND_CEIL, &out->required_buffer);
+    if (status != VDTL_OK) return status;
+    if (payout > vault->available) {
+        out->unfunded = payout - vault->available;
+        out->projected_available = 0u;
+    } else {
+        out->projected_available = vault->available - payout;
+    }
+    if (out->projected_available > out->required_buffer) {
+        out->headroom = out->projected_available - out->required_buffer;
+    }
+    out->within_policy = out->unfunded == 0u &&
+                         out->projected_available >= out->required_buffer;
+    return VDTL_OK;
+}

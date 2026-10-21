@@ -9,6 +9,7 @@ import {
     createCatalog,
     createLedger,
     minOutForSlippage,
+    projectVaultLiquidity,
     quoteRoute,
     settleOrder,
     VortexError,
@@ -144,4 +145,28 @@ test("CLI expone policy y health report", () => {
     assert.equal(health.vaultCount, 8);
     assert.equal(health.totalPaidValue, 6_241_658);
     assert.equal(health.vaults[0].asset, "vUSD");
+});
+
+test("la proyección de liquidez conserva un colchón por activo", () => {
+    const ledger = createLedger();
+    const funded = projectVaultLiquidity(ledger, "vUSD", 1_000_000n, 500);
+    assert.equal(funded.requiredBuffer, BigInt(ledger.catalog.asset("vUSD").openingLiquidity) / 20n);
+    assert.equal(funded.projectedAvailable, funded.available - 1_000_000n);
+    assert.equal(funded.headroom, funded.projectedAvailable - funded.requiredBuffer);
+    assert.equal(funded.unfunded, 0n);
+    assert.equal(funded.withinPolicy, true);
+
+    const insufficient = projectVaultLiquidity(ledger, "vUSD", funded.available + 1n, 500);
+    assert.equal(insufficient.projectedAvailable, 0n);
+    assert.equal(insufficient.unfunded, 1n);
+    assert.equal(insufficient.withinPolicy, false);
+    assert.throws(() => projectVaultLiquidity(ledger, "vUSD", 1n, 10_001));
+});
+
+test("CLI publica una proyección JSON reproducible", () => {
+    const projection = loadJsonCommand(["liquidity-json", "vUSD", "1000000", "500"]);
+    assert.equal(projection.asset, "vUSD");
+    assert.equal(projection.requestedPayout, 1_000_000);
+    assert.equal(projection.bufferBps, 500);
+    assert.equal(projection.withinPolicy, true);
 });

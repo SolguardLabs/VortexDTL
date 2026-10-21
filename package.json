@@ -1,23 +1,22 @@
 {
     "name": "vortex-dtl",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "private": true,
     "type": "module",
-    "description": "CTF de pricing y liquidacion DTL con motor C y tests JavaScript.",
+    "description": "Motor de cotización y liquidación DTL con núcleo C y verificación JavaScript.",
     "scripts": {
         "build": "node scripts/build.mjs",
         "build:required": "node scripts/build.mjs --required",
         "build:check": "node scripts/check-js.mjs",
         "test": "node --test \"tests/node/*.test.js\"",
         "test:bun": "bun test --timeout 30000 ./tests/node",
-        "test:all": "node scripts/build.mjs && node scripts/check-js.mjs && node --test \"tests/node/*.test.js\"",
+        "test:all": "node scripts/build.mjs --required && node scripts/check-js.mjs && node --test \"tests/node/*.test.js\"",
         "demo": "node scripts/vortex-js.mjs demo-json",
         "quote": "node scripts/vortex-js.mjs quote-json stable-direct 2500000",
-        "exploit": "node scripts/vortex-js.mjs exploit-json",
-        "scan": "node scripts/audit-scan.mjs vortex-loop 1000000 1000100",
+        "liquidity": "node scripts/vortex-js.mjs liquidity-json vUSD 1000000 500",
         "policy": "node scripts/vortex-js.mjs route-policy-json stable-direct",
         "health": "node scripts/vortex-js.mjs health-json",
-        "ci": "node scripts/build.mjs && node scripts/check-js.mjs && node --test \"tests/node/*.test.js\""
+        "ci": "node scripts/build.mjs --required && node scripts/check-js.mjs && node --test \"tests/node/*.test.js\""
     },
     "engines": {
         "node": ">=20"
