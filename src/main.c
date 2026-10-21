@@ -10,9 +10,9 @@ static void usage(FILE *stream) {
     fputs("  vortexdtl demo-json\n", stream);
     fputs("  vortexdtl quote-json <route> <amount>\n", stream);
     fputs("  vortexdtl settle-json <route> <amount> [minOut]\n", stream);
-    fputs("  vortexdtl exploit-json [iterations] [amount]\n", stream);
     fputs("  vortexdtl route-policy-json <route>\n", stream);
     fputs("  vortexdtl health-json\n", stream);
+    fputs("  vortexdtl liquidity-json <asset> <payout> [bufferBps]\n", stream);
 }
 
 static int parse_u64(const char *text, uint64_t fallback, uint64_t *out) {
@@ -138,29 +138,21 @@ static int command_health(void) {
     return 0;
 }
 
-static int command_exploit(int argc, char **argv) {
+static int command_liquidity(int argc, char **argv) {
     vdtl_ledger ledger;
-    vdtl_quote quote;
-    vdtl_settlement_event first;
-    vdtl_settlement_event last;
-    uint64_t iterations;
-    uint64_t amount;
-    uint64_t i;
+    vdtl_liquidity_projection projection;
+    const char *asset = argc > 2 ? argv[2] : "vUSD";
+    uint64_t payout;
+    uint64_t buffer;
     vdtl_status status;
-    memset(&first, 0, sizeof(first));
-    memset(&last, 0, sizeof(last));
-    if (!parse_u64(argc > 2 ? argv[2] : NULL, 64u, &iterations)) return fail_status(VDTL_ERR_ARGUMENT);
-    if (!parse_u64(argc > 3 ? argv[3] : NULL, 1000001u, &amount)) return fail_status(VDTL_ERR_ARGUMENT);
+    if (!parse_u64(argc > 3 ? argv[3] : NULL, 1000000u, &payout)) return fail_status(VDTL_ERR_ARGUMENT);
+    if (!parse_u64(argc > 4 ? argv[4] : NULL, 500u, &buffer)) return fail_status(VDTL_ERR_ARGUMENT);
+    if (buffer > 10000u) return fail_status(VDTL_ERR_RANGE);
     status = vdtl_ledger_init_default(&ledger);
     if (status != VDTL_OK) return fail_status(status);
-    status = vdtl_quote_route(&ledger.ctx, "vortex-loop", amount, &quote);
+    status = vdtl_project_vault_liquidity(&ledger, asset, payout, (uint32_t)buffer, &projection);
     if (status != VDTL_OK) return fail_status(status);
-    for (i = 0u; i < iterations; i++) {
-        status = vdtl_settle_order(&ledger, "vortex-loop", amount, quote.final_out, &last);
-        if (status != VDTL_OK) return fail_status(status);
-        if (i == 0u) first = last;
-    }
-    vdtl_json_print_exploit(stdout, &first, &last, &ledger, iterations, amount);
+    vdtl_json_print_liquidity_projection(stdout, &projection);
     fputc('\n', stdout);
     return 0;
 }
@@ -174,9 +166,9 @@ int main(int argc, char **argv) {
     if (strcmp(command, "quote-json") == 0) return command_quote(argc, argv);
     if (strcmp(command, "settle-json") == 0) return command_settle(argc, argv);
     if (strcmp(command, "demo-json") == 0) return command_demo();
-    if (strcmp(command, "exploit-json") == 0) return command_exploit(argc, argv);
     if (strcmp(command, "route-policy-json") == 0) return command_route_policy(argc, argv);
     if (strcmp(command, "health-json") == 0) return command_health();
+    if (strcmp(command, "liquidity-json") == 0) return command_liquidity(argc, argv);
     usage(stderr);
     return 1;
 }

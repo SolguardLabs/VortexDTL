@@ -139,7 +139,6 @@ typedef struct vdtl_vault {
 typedef struct vdtl_ledger_totals {
     uint64_t reserved_value;
     uint64_t credited_value;
-    uint64_t extracted_value;
     uint64_t orders;
 } vdtl_ledger_totals;
 
@@ -162,26 +161,7 @@ typedef struct vdtl_settlement_event {
     vdtl_quote settlement;
     uint64_t reserved_value;
     uint64_t credited_value;
-    uint64_t extracted_value;
 } vdtl_settlement_event;
-
-typedef struct vdtl_audit_report {
-    char route_id[VDTL_ID_LEN];
-    char source_asset[VDTL_SYMBOL_LEN];
-    char target_asset[VDTL_SYMBOL_LEN];
-    uint64_t amount_in;
-    uint64_t quote_out;
-    uint64_t reserve_in;
-    uint64_t settlement_out;
-    uint64_t reserved_value;
-    uint64_t credited_value;
-    uint64_t rebate_value;
-    uint64_t gap_value;
-    uint64_t leg_count;
-    uint64_t lossy_quote_legs;
-    uint64_t expansive_settlement_legs;
-    int vulnerable;
-} vdtl_audit_report;
 
 typedef struct vdtl_route_policy_report {
     char route_id[VDTL_ID_LEN];
@@ -216,6 +196,18 @@ typedef struct vdtl_ledger_health {
     uint64_t protocol_value;
     uint64_t stressed_vaults;
 } vdtl_ledger_health;
+
+typedef struct vdtl_liquidity_projection {
+    char asset[VDTL_SYMBOL_LEN];
+    uint64_t available;
+    uint64_t requested_payout;
+    uint32_t buffer_bps;
+    uint64_t required_buffer;
+    uint64_t projected_available;
+    uint64_t headroom;
+    uint64_t unfunded;
+    int within_policy;
+} vdtl_liquidity_projection;
 
 const char *vdtl_status_name(vdtl_status status);
 const char *vdtl_rounding_name(vdtl_rounding rounding);
@@ -289,25 +281,15 @@ vdtl_status vdtl_settle_order(
     uint64_t amount_in,
     uint64_t min_out,
     vdtl_settlement_event *out);
-vdtl_status vdtl_audit_route_amount(
-    const vdtl_context *ctx,
-    const char *route_id,
-    uint64_t amount_in,
-    vdtl_audit_report *out);
-vdtl_status vdtl_audit_event(
-    const vdtl_context *ctx,
-    const vdtl_settlement_event *event,
-    vdtl_audit_report *out);
-vdtl_status vdtl_find_first_rounding_gap(
-    const vdtl_context *ctx,
-    const char *route_id,
-    uint64_t start_amount,
-    uint64_t end_amount,
-    uint64_t step,
-    vdtl_audit_report *out);
 vdtl_status vdtl_collect_ledger_health(
     const vdtl_ledger *ledger,
     vdtl_ledger_health *out);
+vdtl_status vdtl_project_vault_liquidity(
+    const vdtl_ledger *ledger,
+    const char *asset,
+    uint64_t payout,
+    uint32_t buffer_bps,
+    vdtl_liquidity_projection *out);
 
 void vdtl_json_print_quote(FILE *stream, const vdtl_context *ctx, const vdtl_quote *quote);
 void vdtl_json_print_compact_settlement(
@@ -317,13 +299,11 @@ void vdtl_json_print_compact_settlement(
 void vdtl_json_print_ledger(FILE *stream, const vdtl_ledger *ledger);
 void vdtl_json_print_demo(FILE *stream, const vdtl_settlement_event *a,
                           const vdtl_settlement_event *b, const vdtl_ledger *ledger);
-void vdtl_json_print_exploit(FILE *stream, const vdtl_settlement_event *first,
-                             const vdtl_settlement_event *last,
-                             const vdtl_ledger *ledger,
-                             uint64_t iterations,
-                             uint64_t amount_in);
 void vdtl_json_print_route_policy(FILE *stream, const vdtl_route_policy_report *report);
 void vdtl_json_print_ledger_health(FILE *stream, const vdtl_ledger_health *health);
+void vdtl_json_print_liquidity_projection(
+    FILE *stream,
+    const vdtl_liquidity_projection *projection);
 
 #ifdef __cplusplus
 }

@@ -9,7 +9,7 @@ import {
     collectLedgerHealth,
     createLedger,
     quoteRoute,
-    runExploit,
+    projectVaultLiquidity,
     settleOrder,
     toPlain,
 } from "../tests/helpers/vortex-model.js";
@@ -20,9 +20,9 @@ function usage() {
         "  node scripts/vortex-js.mjs demo-json",
         "  node scripts/vortex-js.mjs quote-json <route> <amount>",
         "  node scripts/vortex-js.mjs settle-json <route> <amount> [minOut]",
-        "  node scripts/vortex-js.mjs exploit-json [iterations] [amount]",
         "  node scripts/vortex-js.mjs route-policy-json <route>",
         "  node scripts/vortex-js.mjs health-json",
+        "  node scripts/vortex-js.mjs liquidity-json <asset> <payout> [bufferBps]",
     ].join("\n");
 }
 
@@ -89,27 +89,6 @@ try {
         process.exit(0);
     }
 
-    if (command === "exploit-json") {
-        const iterations = Number(routeArg ?? 64);
-        const amount = parseAmount(amountArg, 1_000_001n);
-        const result = runExploit({ iterations, amountIn: amount });
-        console.log(
-            JSON.stringify(
-                toPlain({
-                    scenario: "exploit",
-                    routeId: result.routeId,
-                    amountIn: result.amountIn,
-                    iterations: result.iterations,
-                    quoteOut: result.quote.finalOut,
-                    first: compactSettlement(result.firstSettlement),
-                    last: compactSettlement(result.lastSettlement),
-                    ledger: compactLedger(result.ledger),
-                }),
-            ),
-        );
-        process.exit(0);
-    }
-
     if (command === "route-policy-json") {
         const route = routeArg ?? "stable-direct";
         console.log(JSON.stringify(compactRoutePolicy(checkRoutePolicy(route))));
@@ -131,6 +110,15 @@ try {
             minOut: quoteRoute("rebate-hop", 3_750_000n).finalOut,
         });
         console.log(JSON.stringify(compactLedgerHealth(collectLedgerHealth(ledger))));
+        process.exit(0);
+    }
+
+    if (command === "liquidity-json") {
+        const asset = routeArg ?? "vUSD";
+        const payout = parseAmount(amountArg, 1_000_000n);
+        const bufferBps = Number(minOutArg ?? "500");
+        const projection = projectVaultLiquidity(createLedger(), asset, payout, bufferBps);
+        console.log(JSON.stringify(toPlain(projection)));
         process.exit(0);
     }
 

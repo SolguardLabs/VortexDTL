@@ -1,143 +1,76 @@
-# Vortex DTL
+# VortexDTL
 
-![banner](./assets/banner.png)
+![VortexDTL — Solguard Labs](assets/banner.png)
 
-Vortex DTL es un laboratorio CTF sobre un motor C de pricing y liquidacion para
-swaps DTL internos entre bovedas con distintas precisiones, fees dinamicas y
-rebates. La suite JavaScript valida quotes normales, slippage, fees, rounding y
-settlement con un modelo determinista equivalente al binario.
+VortexDTL es un motor de cotización y liquidación de corredores DTL con núcleo C11 y cliente de referencia JavaScript. Administra rutas de varios activos con precisión decimal heterogénea, tarifas dinámicas, rebates de creador de mercado y reservas por bóveda. Produce salidas JSON estables para integrar paneles operativos y comprobaciones de tesorería.
 
-La implementacion esta disenada como un sistema financiero compacto: no abre
-puertos, no usa servicios externos y todas las rutas, precios, bovedas y
-balances se cargan desde fixtures locales.
+## Arquitectura
 
-## Componentes
-
-- `include/vortexdtl.h`: API publica del motor C.
-- `src/vdtl_amount.c`: aritmetica entera, escalado decimal y redondeos.
-- `src/vdtl_registry.c`: assets, rutas, legs y bovedas de referencia.
-- `src/vdtl_quote.c`: quotes preliminares, reserva y liquidacion final.
-- `src/vdtl_ledger.c`: estado contable y settlement de ordenes.
-- `src/vdtl_controls.c`: minOut, policy checks y health de vaults.
-- `src/vdtl_json.c`: serializacion JSON estable para CLI.
-- `src/main.c`: comandos reproducibles del laboratorio.
-- `tests/helpers`: modelo JavaScript usado por los tests.
-- `tests/node`: tests de integracion y reproduccion del CTF.
-
-## Requisitos
-
-- Node.js `>= 20`.
-- Opcional: `cc`, `gcc`, `clang` o MSVC `cl` para compilar el motor C.
-
-La maquina local puede ejecutar toda la suite JS sin compilador C. Si hay
-compilador disponible, `npm run build` genera `build/vortexdtl`.
-
-## Uso
-
-Ejecutar los tests:
-
-```bash
-npm run test
+```mermaid
+flowchart LR
+    C[Catálogo de activos y rutas] --> Q[Motor de cotización]
+    Q --> P[Política de corredor]
+    Q --> R[Reserva de orden]
+    R --> S[Liquidación]
+    S --> L[Libro de cuentas y bóvedas]
+    L --> H[Salud de tesorería]
+    L --> B[Proyección de colchón]
+    Q --> J[Contrato JSON]
+    H --> J
+    B --> J
 ```
 
-Ejecutar el flujo completo local:
+El binario C y el cliente JavaScript comparten escenarios deterministas. `include/vortexdtl.h` define tipos, estados y funciones del motor. `src/vdtl_amount.c` concentra escala decimal, bps y redondeos; `src/vdtl_quote.c` calcula cotizaciones y conversiones; `src/vdtl_ledger.c` registra saldos y recibos. Los módulos `vdtl_controls.c` y `vdtl_json.c` exponen reportes de política, salud y capacidad de reserva.
+
+## Modelo económico
+
+Cada leg convierte un entero del activo origen a una precisión común de 12 decimales, aplica el ratio `rate_num/rate_den` y expresa el resultado en la precisión del destino. La tarifa dinámica del leg es `base + volatilidad + floor(utilización × cap / 10.000)` bps; los rebates se liquidan por activo. Una orden pasa por cotización, reserva y liquidación; `minOut` protege el umbral solicitado. Los importes son unidades mínimas de su respectivo activo, no números de coma flotante.
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Cotizador
+    participant Libro
+    participant Tesorería
+    Cliente->>Cotizador: quote-json(ruta, importe)
+    Cotizador-->>Cliente: salida y cargos por leg
+    Cliente->>Libro: settle-json(ruta, importe, minOut)
+    Libro->>Libro: reserva, liquidación y recibo
+    Libro-->>Cliente: saldos y evento
+    Cliente->>Tesorería: health-json / liquidity-json
+    Tesorería-->>Cliente: utilización y colchón proyectado
+```
+
+La proyección de liquidez toma la reserva disponible del activo y calcula un colchón configurado en bps sobre su liquidez de apertura. Devuelve disponibilidad proyectada, holgura y parte no financiada. Es una consulta de planificación: no mueve fondos ni sustituye la política de ejecución.
+
+## Ejecución
+
+Requiere Node.js 24 para la suite y un compilador C11 (`cc`, `gcc`, `clang` o MSVC) para el binario nativo. En Linux:
 
 ```bash
+npm ci
 npm run ci
+./build/vortexdtl quote-json stable-direct 2500000
+./build/vortexdtl liquidity-json vUSD 1000000 500
 ```
 
-Compilar el binario C si hay compilador disponible:
+El cliente de referencia funciona sin compilar C:
 
 ```bash
-npm run build
+node scripts/vortex-js.mjs demo-json
+node scripts/vortex-js.mjs route-policy-json stable-direct
+node scripts/vortex-js.mjs health-json
+node scripts/vortex-js.mjs liquidity-json vUSD 1000000 500
 ```
 
-Forzar error si no hay compilador:
+Para el corredor `stable-direct`, una entrada de `2_500_000` unidades de vUSD produce una cotización preliminar de `2_311_805` unidades de vEUR con tarifa dinámica de 13 bps. Consulte [modelo económico](docs/modelo-economico.md) para el cálculo completo y [contrato JSON](docs/contrato-json.md) para interpretar salidas.
 
-```bash
-npm run build:required
-```
+## Documentación
 
-Ejecutar escenarios mediante el modelo JS:
+- [Arquitectura y ciclo de estados](docs/arquitectura.md)
+- [Modelo económico y ejemplos](docs/modelo-economico.md)
+- [Operación y validación](docs/operacion.md)
+- [Contrato JSON](docs/contrato-json.md)
+- [Política de seguridad](SECURITY.md)
 
-```bash
-npm run demo
-npm run exploit
-npm run policy
-npm run health
-```
-
-Si el binario C existe, acepta comandos equivalentes:
-
-```bash
-build/vortexdtl demo-json
-build/vortexdtl quote-json stable-direct 2500000
-build/vortexdtl route-policy-json stable-direct
-build/vortexdtl health-json
-build/vortexdtl exploit-json
-```
-
-## Modelo Del Protocolo
-
-El motor representa una orden DTL como:
-
-1. `quote`: cotizacion preliminar de una ruta.
-2. `reserve`: reserva de fondos basada en la quote preliminar.
-3. `settle`: liquidacion final y acreditacion de saldos.
-
-Cada ruta contiene legs con:
-
-- asset origen y destino;
-- precision decimal de cada asset;
-- ratio entero `rate_num/rate_den`;
-- fee base;
-- fee de volatilidad;
-- fee dependiente de utilizacion;
-- rebate de maker.
-
-Las rutas normales usan activos como `vUSD`, `vEUR` y `vREB`. La ruta de CTF
-`vortex-loop` pasa por activos artificiales con la misma paridad economica pero
-distinta precision decimal:
-
-```text
-vUSD(6) -> vQ7(7) -> vQ3(3) -> vQ8(8) -> vQ2(2) -> vQ5(5) -> vUSD(6)
-```
-
-## Objetivo CTF
-
-Encuentra una secuencia de swaps que extraiga liquidez de forma progresiva
-aprovechando diferencias de redondeo entre quote preliminar, reserva y
-liquidacion final.
-
-Pistas de alto nivel:
-
-- la quote preliminar normaliza hacia una precision comun y redondea hacia
-  abajo;
-- la reserva reconstruye el input necesario caminando la ruta en sentido
-  inverso y vuelve a redondear hacia abajo;
-- la liquidacion final ejecuta hacia adelante y usa redondeo hacia arriba en
-  conversiones de precision;
-- cada fase parece localmente valida, pero las tres no son equivalentes;
-- el impacto aumenta al repetir rutas largas con saltos por assets de baja
-  precision.
-
-## Tests
-
-La suite cubre:
-
-- quotes normales y campos JSON deterministas;
-- control de slippage;
-- fee dinamica y rebate;
-- minOut, validacion operativa de rutas y health de vaults;
-- rounding entre assets con distinta precision;
-- settlement contable;
-- reproduccion de la ruta vulnerable.
-
-El test de reproduccion no es una solucion completa de auditoria; solo muestra
-que existe una operacion con reserva inferior al credito final.
-
-## Estado
-
-Este repositorio es un CTF autocontenido. No debe usarse como motor financiero
-real. La vulnerabilidad intencional esta documentada en `vulnerability.md`, que
-queda ignorado por `.gitignore` para evitar publicarlo por accidente.
+La versión `1.0.0` identifica el código y contrato publicados. La rama `production`, el tag anotado `v1.0.0` y la release conservan la misma revisión; su publicación no conecta el motor con redes ni custodios externos.

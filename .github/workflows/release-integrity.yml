@@ -1,0 +1,34 @@
+name: release-integrity
+
+on:
+  push:
+    branches: [production]
+    tags: [v*]
+  release:
+    types: [published]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Validate release identity and documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force origin main production --tags
+          main=$(git rev-parse origin/main)
+          production=$(git rev-parse origin/production)
+          tag=$(git rev-parse v1.0.0^{commit})
+          test "$main" = "$production"
+          test "$main" = "$tag"
+          test "$(git cat-file -t v1.0.0)" = tag
+          test -s assets/banner.png
+          test -s README.md
+          test -s SECURITY.md
+          test -s docs/arquitectura.md
+          test -s docs/modelo-economico.md
+          test -s docs/operacion.md
+          test -s docs/contrato-json.md

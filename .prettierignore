@@ -2,3 +2,6 @@ build/
 node_modules/
 src/**/*.c
 include/**/*.h
+coverage/
+package-lock.json
+assets/banner.png
